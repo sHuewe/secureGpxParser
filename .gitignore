@@ -1,0 +1,6 @@
+/build/*
+/app/build/*
+/app/release/*
+/.idea/*
+/.gradle/*
+secure.properties
