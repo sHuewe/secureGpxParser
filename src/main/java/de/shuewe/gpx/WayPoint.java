@@ -216,7 +216,7 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
         if (m_date == null) {
             return null;
         }
-        toEncode += SecureGPXParser.getDateString(m_date) + m_accuracy + Double.toString(getLat()) + Double.toString(getLng());
+        toEncode += SecureGPXParser.getDateString(m_date) + parseAccuracy(m_accuracy) + parseCoordinate(getLat()) + parseCoordinate(getLng());
         MessageDigest digest = null;
         String hash;
         try {
@@ -232,6 +232,14 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
             e1.printStackTrace();
         }
         return res;
+    }
+
+    private String parseCoordinate(double doubleVal) {
+        return String.format("%.6f",doubleVal);
+    }
+
+    private String parseAccuracy(double acc){
+        return String.format("%.1f",acc);
     }
 
     /**
