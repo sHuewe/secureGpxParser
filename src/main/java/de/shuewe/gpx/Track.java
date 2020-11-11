@@ -47,6 +47,10 @@ public class Track implements Comparable<Track> {
         Collections.sort(m_waypoints.get(m_waypoints.size()-1));
     }
 
+    public void addPointsToSegments(List<WayPoint> toBeMoved) {
+        //TODO implement
+    }
+
     @Override
     public int compareTo(Track track) {
         if (track.getPoints().get(0).isEmpty()) {
@@ -111,6 +115,7 @@ public class Track implements Comparable<Track> {
         return m_name;
     }
 
+
     /**
      * Sets the name of the track
      *
@@ -152,8 +157,27 @@ public class Track implements Comparable<Track> {
         boolean removed=false;
         for(List<WayPoint> points:getPoints()){
             removed = removed | points.remove(point);
+            if(removed){
+                break;
+            }
         }
         return removed;
+    }
+
+
+    public void removeWaypoints(List<WayPoint> toBeMoved) {
+        for(WayPoint point:toBeMoved){
+            removeWaypoint(point);
+        }
+        List<List<WayPoint>> emptyLists=new ArrayList<List<WayPoint>>();
+        for(int i=0;(i+1)<getPoints().size();i++){
+            if(getPoints().get(i).isEmpty()){
+                emptyLists.add(getPoints().get(i));
+            }
+        }
+        for(List<WayPoint> points:emptyLists){
+            getPoints().remove(points);
+        }
     }
 
     /**

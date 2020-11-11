@@ -9,6 +9,7 @@ import org.xmlpull.v1.XmlSerializer;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -56,6 +57,9 @@ public class SecureGPXParser {
     //Name of the file
     private String m_name = null;
 
+    //File name, can be null
+    private String m_filename=null;
+
     //List of sorted Waypoints (sorted by date, if date == null, points are on end of list).
     private List<WayPoint> m_sortedPoints = null;
 
@@ -66,7 +70,7 @@ public class SecureGPXParser {
     private Boolean m_valid = null;
 
     //List of single waypoints (without tracks)
-    private List<WayPoint> points = new ArrayList<>();
+    private List<WayPoint> m_points = new ArrayList<>();
 
     /**
      * Empty constructor.
@@ -252,7 +256,7 @@ public class SecureGPXParser {
         }
         res.generateHash(prevHash);
         if (parentName == null) {
-            points.add(res);
+            m_points.add(res);
         } else {
             if (!m_tracks.containsKey(parentName)) {
                 m_tracks.put(parentName, new Track(parentName));
@@ -268,6 +272,43 @@ public class SecureGPXParser {
         }
         notifyListener();
         return res;
+    }
+
+    public void changeTrackFromWaypoint(WayPoint point, String newTrackname) {
+        List<WayPoint> toBeMoved=new ArrayList<WayPoint>();
+        Track sourceTrack = m_tracks.get(point.get_parentName());
+        int i=0;
+        List<List<WayPoint>> pointList=sourceTrack.getPoints();
+        for(List<WayPoint> points:pointList){
+            int pos = points.indexOf(point);
+            if(pos==-1){
+                //Not in list
+                continue;
+            }
+            i++;
+            toBeMoved.addAll(points.subList(pos,points.size()));
+        }
+        if(pointList.size() >= i){
+            for(int j=i;j<pointList.size();j++){
+                toBeMoved.addAll(pointList.get(j));
+            }
+        }
+        sourceTrack.removeWaypoints(toBeMoved);
+        if(sourceTrack.getSize()==0){
+            m_tracks.remove(sourceTrack.getName());
+        }
+        for(WayPoint p:toBeMoved){
+            p.setParentName(newTrackname);
+        }
+        if(!m_tracks.containsKey(newTrackname)){
+            m_tracks.put(newTrackname,new Track(newTrackname));
+        }
+        if(m_tracks.get(newTrackname).getSize()==0) {
+            m_tracks.get(newTrackname).addPoints(toBeMoved);
+        }else{
+            m_tracks.get(newTrackname).addPointsToSegments(toBeMoved);
+        }
+
     }
 
     @Override
@@ -300,6 +341,15 @@ public class SecureGPXParser {
     }
 
     /**
+     * Gets the filename
+     *
+     * @return filename, null if not set
+     */
+    public String getFilename(){
+        return m_filename;
+    }
+
+    /**
      * Gets sorted List of all locations (from single Waypoints and tracks)
      *
      * @return sorted list of WayPoint
@@ -309,7 +359,7 @@ public class SecureGPXParser {
             if (m_sortedPoints == null) {
                 m_sortedPoints = new ArrayList<WayPoint>();
             }
-            m_sortedPoints.addAll(points);
+            m_sortedPoints.addAll(m_points);
             for (String trackName : m_tracks.keySet()) {
                 for(List<WayPoint> points:m_tracks.get(trackName).getPoints()) {
                     m_sortedPoints.addAll(points);
@@ -341,6 +391,27 @@ public class SecureGPXParser {
      */
     public String getName() {
         return m_name;
+    }
+
+    /**
+     * Sets the filename
+     *
+     * @param name to be set
+     */
+    public void setFilename(String name){
+        m_filename=name;
+    }
+
+    /**
+     * Saves the parser. Needs to have filename set.
+     *
+     * @throws FileNotFoundException IO exception if filename doesn't exist or is not writeable
+     */
+    public void save() throws FileNotFoundException {
+        if(m_filename==null){
+            throw new IllegalArgumentException("No filename set! Call setFilename before!");
+        }
+        write(new FileOutputStream(new File(m_filename)));
     }
 
     /**
@@ -432,7 +503,7 @@ public class SecureGPXParser {
         boolean removed = false;
         if (point.get_parentName() == null || point.get_parentName().isEmpty()) {
             //Single waypoint
-            removed = points.remove(point);
+            removed = m_points.remove(point);
         } else {
             //Track
             removed = m_tracks.get(point.get_parentName()).removeWaypoint(point);
@@ -453,7 +524,7 @@ public class SecureGPXParser {
      * Reset the parser
      */
     public void reset() {
-        points.clear();
+        m_points.clear();
         m_tracks.clear();
         m_valid = null;
         if (m_sortedPoints != null) {
@@ -486,7 +557,7 @@ public class SecureGPXParser {
                 xmlSerializer.endTag("", TAG_NAME);
                 xmlSerializer.endTag("", TAG_METADATA);
             }
-            for (WayPoint point : points) {
+            for (WayPoint point : m_points) {
                 addPointToParser(xmlSerializer, point, TAG_WAYPOINT);
             }
             for (String trackName : m_tracks.keySet()) {
@@ -576,7 +647,7 @@ public class SecureGPXParser {
                         }
                     }
                 } else if (parser.getName().equals(TAG_WAYPOINT)) {
-                    points.add(readWayPoint(parser));
+                    m_points.add(readWayPoint(parser));
                 } else if (parser.getName().equals(TAG_ROUTE)) {
                     List<WayPoint> routePoints = new ArrayList<WayPoint>();
                     String routeName = "";
@@ -642,7 +713,7 @@ public class SecureGPXParser {
                     skip(parser);
                 }
             }
-            Collections.sort(points);
+            Collections.sort(m_points);
             m_init_ok = true;
         } catch (XmlPullParserException | IOException e) {
             e.printStackTrace();
