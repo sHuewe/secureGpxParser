@@ -47,7 +47,7 @@ public class Track implements Comparable<Track> {
         Collections.sort(m_waypoints.get(m_waypoints.size()-1));
     }
 
-    public void addPointsToSegments(List<WayPoint> toBeMoved) {
+    public void addPointsToSegments(List<List<WayPoint>> toBeMoved) {
         //TODO implement
     }
 

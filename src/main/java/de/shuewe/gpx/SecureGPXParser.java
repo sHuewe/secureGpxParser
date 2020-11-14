@@ -275,36 +275,45 @@ public class SecureGPXParser {
     }
 
     public void changeTrackFromWaypoint(WayPoint point, String newTrackname) {
-        List<WayPoint> toBeMoved=new ArrayList<WayPoint>();
+        List<List<WayPoint>> toBeMoved=new ArrayList<List<WayPoint>>();
         Track sourceTrack = m_tracks.get(point.get_parentName());
         int i=0;
+        int iPos=-1;
         List<List<WayPoint>> pointList=sourceTrack.getPoints();
         for(List<WayPoint> points:pointList){
             int pos = points.indexOf(point);
+            i++;
             if(pos==-1){
                 //Not in list
                 continue;
             }
-            i++;
-            toBeMoved.addAll(points.subList(pos,points.size()));
+            iPos=i; //+1 -> start with next segment
+            toBeMoved.add(points.subList(pos,points.size()));
         }
-        if(pointList.size() >= i){
-            for(int j=i;j<pointList.size();j++){
-                toBeMoved.addAll(pointList.get(j));
+        if(pointList.size() >= iPos && iPos!=-1){
+            for(int j=iPos;j<pointList.size();j++){
+                toBeMoved.add(pointList.get(j));
             }
         }
-        sourceTrack.removeWaypoints(toBeMoved);
+        for(List<WayPoint> points:toBeMoved) {
+            sourceTrack.removeWaypoints(points);
+        }
         if(sourceTrack.getSize()==0){
             m_tracks.remove(sourceTrack.getName());
         }
-        for(WayPoint p:toBeMoved){
-            p.setParentName(newTrackname);
+        for(List<WayPoint> points:toBeMoved){
+            for(WayPoint p:points) {
+                p.setParentName(newTrackname);
+            }
         }
         if(!m_tracks.containsKey(newTrackname)){
             m_tracks.put(newTrackname,new Track(newTrackname));
         }
         if(m_tracks.get(newTrackname).getSize()==0) {
-            m_tracks.get(newTrackname).addPoints(toBeMoved);
+            for(List<WayPoint> points:toBeMoved) {
+                m_tracks.get(newTrackname).addPoints(points);
+                m_tracks.get(newTrackname).startNewSegment();
+            }
         }else{
             m_tracks.get(newTrackname).addPointsToSegments(toBeMoved);
         }
