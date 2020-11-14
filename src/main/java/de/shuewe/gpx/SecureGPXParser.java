@@ -308,7 +308,7 @@ public class SecureGPXParser {
         }else{
             m_tracks.get(newTrackname).addPointsToSegments(toBeMoved);
         }
-
+        notifyListener();
     }
 
     @Override
