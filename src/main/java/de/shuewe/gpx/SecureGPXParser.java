@@ -288,15 +288,15 @@ public class SecureGPXParser {
                 continue;
             }
             iPos=i; //+1 -> start with next segment
-            toBeMoved.add(points.subList(pos,points.size()));
+            toBeMoved.add(new ArrayList<>(points.subList(pos,points.size())));
         }
         if(pointList.size() >= iPos && iPos!=-1){
             for(int j=iPos;j<pointList.size();j++){
-                toBeMoved.add(pointList.get(j));
+                toBeMoved.add(new ArrayList<>(pointList.get(j)));
             }
         }
         for(List<WayPoint> points:toBeMoved) {
-            sourceTrack.removeWaypoints(points);
+            sourceTrack.removeWaypoints(points,false);
         }
         if(sourceTrack.getSize()==0){
             m_tracks.remove(sourceTrack.getName());
@@ -516,6 +516,9 @@ public class SecureGPXParser {
         } else {
             //Track
             removed = m_tracks.get(point.get_parentName()).removeWaypoint(point);
+            if(m_tracks.get(point.get_parentName()).getSize()==0){
+                m_tracks.remove(point.get_parentName());
+            }
         }
         if (removed) {
             m_sortedPoints.clear();
@@ -705,18 +708,22 @@ public class SecureGPXParser {
                             skip(parser);
                         }
                     }
+                    int size=0;
                     for (List<WayPoint> points : wayPointList) {
+                        size+=points.size();
                         for(WayPoint point:points) {
                             point.setParentName(trackName);
                         }
                     }
-                    if (!m_tracks.containsKey(trackName)) {
-                        m_tracks.put(trackName, new Track(trackName));
-                    }
-                    Track track =m_tracks.get(trackName);
-                    for(List<WayPoint> points: wayPointList){
-                        track.addPoints(points);
-                        track.startNewSegment();
+                    if(size>0){
+                        if (!m_tracks.containsKey(trackName)) {
+                            m_tracks.put(trackName, new Track(trackName));
+                        }
+                        Track track =m_tracks.get(trackName);
+                        for(List<WayPoint> points: wayPointList){
+                            track.addPoints(points);
+                            track.startNewSegment();
+                        }
                     }
                 } else {
                     skip(parser);

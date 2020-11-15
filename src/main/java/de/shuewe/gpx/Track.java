@@ -2,7 +2,9 @@ package de.shuewe.gpx;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Class which represents Tracks in GPX.
@@ -43,12 +45,90 @@ public class Track implements Comparable<Track> {
      * @param points to be added
      */
     public void addPoints(List<WayPoint> points) {
+        if(points.isEmpty()){
+            return;
+        }
         m_waypoints.get(m_waypoints.size()-1).addAll(points);
+        WayPoint oldFirst = m_waypoints.get(m_waypoints.size()-1).get(0);
         Collections.sort(m_waypoints.get(m_waypoints.size()-1));
+        if(!oldFirst.equals(m_waypoints.get(m_waypoints.size()-1).get(0))){
+            for(WayPoint point:m_waypoints.get(m_waypoints.size()-1)){
+                point.setIsStartPoint(false);
+            }
+        }
+        m_waypoints.get(m_waypoints.size()-1).get(0).setIsStartPoint(true);
     }
 
-    public void addPointsToSegments(List<List<WayPoint>> toBeMoved) {
-        //TODO implement
+    /**
+     * Finds number of matching segment to given List of points (=segment)
+     *
+     * @param points to match a segment for
+     * @return number of segment, -1 if no suitable segment is available
+     */
+    private int findMatchingSegment(List<WayPoint> points){
+
+        for(int i=0;i<getPoints().size();i++){
+            List<WayPoint> segmentPoints = getPoints().get(i);
+            if(segmentPoints.isEmpty()){
+                continue;
+            }
+            Date minDate=segmentPoints.get(0).getDate();
+            Date maxDate=segmentPoints.get(segmentPoints.size()-1).getDate();
+            if(WayPoint.isPointInRange(points.get(0),minDate,maxDate) || WayPoint.isPointInRange(points.get(points.size()-1),minDate,maxDate)){
+                return i;
+            }
+        }
+        return -1; //No matching segment found
+    }
+
+    /**
+     * Find position of new track to be created.
+     *
+     * @param points to find position of new track for
+     * @return index of new track
+     */
+    private int findNewTrackPosition(List<WayPoint> points){
+        for(int i=0;i<(getPoints().size()-1);i++){
+            List<WayPoint> prevSegment = getPoints().get(i);
+            List<WayPoint> nextSegment = getPoints().get(i+1);
+            if(nextSegment.isEmpty()){
+                continue;
+            }
+            Date minDate=prevSegment.get(prevSegment.size()-1).getDate();
+            Date maxDate=nextSegment.get(0).getDate();
+            if(WayPoint.isPointInRange(points.get(0),minDate,maxDate)){
+                return i+1;
+            }
+        }
+        if(getPoints().get(0).get(0).compareTo(points.get(0))>0){
+            return 0;
+        }
+        return -1; //No matching segment found, just add it at end of list
+    }
+
+    public void addPointsToSegments(List<List<WayPoint>> newSegments) {
+        //Map<Integer,List<WayPoint>>
+        for(List<WayPoint> points:newSegments){
+            if(points.isEmpty()){
+                continue;
+            }
+            //Reset is start point, will be corrected if needed later
+            points.get(0).setIsStartPoint(false);
+            int segmentIndex = findMatchingSegment(points);
+            if(segmentIndex!=-1){
+                //Segment is matching to existing one
+                getPoints().get(segmentIndex).addAll(points);
+                Collections.sort(getPoints().get(segmentIndex));
+            }else{
+                int newPos=findNewTrackPosition(points);
+                if(newPos!=-1) {
+                    m_waypoints.add(newPos, points);
+                }else{
+                    startNewSegment();
+                    addPoints(points);
+                }
+            }
+        }
     }
 
     @Override
@@ -153,21 +233,32 @@ public class Track implements Comparable<Track> {
      * @param point to be removed
      * @return true if WayPoint was removed
      */
-    public boolean removeWaypoint(WayPoint point) {
+    public boolean removeWaypoint(WayPoint point,boolean correctStart) {
         boolean removed=false;
         for(List<WayPoint> points:getPoints()){
             removed = removed | points.remove(point);
-            if(removed){
+            if(removed && correctStart){
+                if(!points.isEmpty()){
+                    points.get(0).setIsStartPoint(true);
+                }
                 break;
             }
         }
         return removed;
     }
 
+    public boolean removeWaypoint(WayPoint point){
+        return removeWaypoint(point,true);
+    }
 
-    public void removeWaypoints(List<WayPoint> toBeMoved) {
-        for(WayPoint point:toBeMoved){
-            removeWaypoint(point);
+
+    public void removeWaypoints(List<WayPoint> toBeMoved){
+        removeWaypoints(toBeMoved,true);
+    }
+
+    public void removeWaypoints(List<WayPoint> toBeMoved,boolean correctStart) {
+        for(WayPoint point:new ArrayList<>(toBeMoved)){
+            removeWaypoint(point,correctStart);
         }
         List<List<WayPoint>> emptyLists=new ArrayList<List<WayPoint>>();
         for(int i=0;(i+1)<getPoints().size();i++){

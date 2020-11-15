@@ -23,6 +23,8 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
     //Accuracy
     private double m_accuracy;
 
+    private boolean m_isStart=false;
+
     //Date
     private Date m_date;
 
@@ -50,6 +52,14 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
         m_accuracy = accuracy;
         m_lat = lat;
         m_lng = lng;
+    }
+
+    public void setIsStartPoint(boolean isStart){
+        m_isStart=isStart;
+    }
+
+    public boolean isStart(){
+        return m_isStart;
     }
 
     /**
@@ -268,6 +278,10 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
      */
     void setHash(String hashValue) {
         m_hash = hashValue;
+    }
+
+    public static boolean isPointInRange(WayPoint point,Date minDate,Date maxDate){
+        return minDate.compareTo(point.getDate())<0 && maxDate.compareTo(point.getDate())>0;
     }
 
 }
