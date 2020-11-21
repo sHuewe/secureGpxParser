@@ -1,5 +1,6 @@
 package de.shuewe.gpx;
 
+import android.util.Log;
 import android.util.Xml;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -28,7 +29,8 @@ import java.util.Set;
 import java.util.TimeZone;
 
 /**
- *
+ * Class for GPX parser.
+ * Handles read/write operations and validation in GPXThread
  */
 public class SecureGPXParser {
 
@@ -51,6 +53,12 @@ public class SecureGPXParser {
     //Set of change listeners.
     private Set<GPXChangeListener> m_changeListener = new HashSet<GPXChangeListener>();
 
+    //Set of save listeners.
+    private Set<GPXChangeListener> m_saveListener = new HashSet<GPXChangeListener>();
+
+    //Validation result listener (set by isValid)
+    private GPXValidationListener m_validationListener;
+
     //Flag indicates if initialization was ok
     private boolean m_init_ok = false;
 
@@ -72,11 +80,13 @@ public class SecureGPXParser {
     //List of single waypoints (without tracks)
     private List<WayPoint> m_points = new ArrayList<>();
 
+    private GPXThread m_thread;
+
     /**
      * Empty constructor.
      */
     public SecureGPXParser() {
-
+        m_thread=GPXThread.getInstance();
     }
 
 
@@ -133,6 +143,10 @@ public class SecureGPXParser {
         return sb.toString();
     }
 
+    protected static SecureGPXParser getNewInstance(){
+        return new SecureGPXParser();
+    }
+
     /**
      * Generates parser instance from given filepath.
      *
@@ -142,7 +156,7 @@ public class SecureGPXParser {
      * @throws IOException exception
      */
     public static SecureGPXParser fromFile(String filePath) throws FileNotFoundException, IOException {
-        SecureGPXParser res = new SecureGPXParser();
+        SecureGPXParser res = getNewInstance();
         res.init(new FileInputStream(new File(filePath)));
         return res;
     }
@@ -204,6 +218,10 @@ public class SecureGPXParser {
         m_changeListener.add(listener);
     }
 
+    public void addOnSaveListener(GPXChangeListener listener) {
+        m_saveListener.add(listener);
+    }
+
     /**
      * Adds a trackpoint
      *
@@ -212,8 +230,8 @@ public class SecureGPXParser {
      * @param accuracy accuracy
      * @return WayPoint
      */
-    public WayPoint addTrackPoint(double lat, double lng, double accuracy) {
-        return addTrackPoint(null, lat, lng, accuracy);
+    public void addTrackPoint(double lat, double lng, double accuracy) {
+        addTrackPoint(null, lat, lng, accuracy);
     }
 
     /**
@@ -225,8 +243,8 @@ public class SecureGPXParser {
      * @param accuracy accuracy
      * @return WayPoint
      */
-    public WayPoint addTrackPoint(String name, double lat, double lng, double accuracy) {
-        return addTrackPoint(null, name, lat, lng, accuracy);
+    public void addTrackPoint(String name, double lat, double lng, double accuracy) {
+        addTrackPoint(null, name, lat, lng, accuracy);
     }
 
     /**
@@ -239,85 +257,113 @@ public class SecureGPXParser {
      * @param accuracy accuracy
      * @return WayPoint
      */
-    public WayPoint addTrackPoint(String parentName, String name, double lat, double lng, double accuracy) {
-        Date date = new Date();
-        WayPoint res;
-        if (name == null) {
-            res = getWayPointInstance(lat, lng, date, accuracy);
-        } else {
-            res = getWayPointInstance(name, lat, lng, date, accuracy);
-        }
-        if (parentName != null) {
-            res.setParentName(parentName);
-        }
-        String prevHash = null;
-        if (!getLocations().isEmpty()) {
-            prevHash = getLocations().get(getLocations().size() - 1).getHash();
-        }
-        res.generateHash(prevHash);
-        if (parentName == null) {
-            m_points.add(res);
-        } else {
-            if (!m_tracks.containsKey(parentName)) {
-                m_tracks.put(parentName, new Track(parentName));
+    public void addTrackPoint(String parentName, String name, double lat, double lng, double accuracy) {
+        final Date date = new Date();
+        Runnable runnable = new Runnable(){
+
+            @Override
+            public void run() {
+                WayPoint res;
+                if (name == null) {
+                    res = getWayPointInstance(lat, lng, date, accuracy);
+                } else {
+                    res = getWayPointInstance(name, lat, lng, date, accuracy);
+                }
+                if (parentName != null) {
+                    res.setParentName(parentName);
+                }
+                String prevHash = null;
+                if (!getLocations().isEmpty()) {
+                    prevHash = getLocations().get(getLocations().size() - 1).getHash();
+                }
+                res.generateHash(prevHash);
+                if (parentName == null) {
+                    m_points.add(res);
+                } else {
+                    if (!m_tracks.containsKey(parentName)) {
+                        m_tracks.put(parentName, new Track(parentName));
+                    }
+                    m_tracks.get(parentName).addPoints(Collections.singletonList(res));
+                }
+                m_valid = null;
+                if (!m_sortedPoints.isEmpty() && m_sortedPoints.get(m_sortedPoints.size() - 1).getDate() == null) {
+                    m_sortedPoints.clear();
+                    getLocations();
+                } else {
+                    m_sortedPoints.add(res);
+                }
             }
-            m_tracks.get(parentName).addPoints(Collections.singletonList(res));
-        }
-        m_valid = null;
-        if (!m_sortedPoints.isEmpty() && m_sortedPoints.get(m_sortedPoints.size() - 1).getDate() == null) {
-            m_sortedPoints.clear();
-            getLocations();
-        } else {
-            m_sortedPoints.add(res);
-        }
-        notifyListener();
-        return res;
+        };
+        addRunnableToBackgroundThread(GPXThread.ACTION.CHANGE_DATA,runnable);
     }
 
     public void changeTrackFromWaypoint(WayPoint point, String newTrackname) {
-        List<List<WayPoint>> toBeMoved=new ArrayList<List<WayPoint>>();
-        Track sourceTrack = m_tracks.get(point.get_parentName());
-        int i=0;
-        int iPos=-1;
-        List<List<WayPoint>> pointList=sourceTrack.getPoints();
-        for(List<WayPoint> points:pointList){
-            int pos = points.indexOf(point);
-            i++;
-            if(pos==-1){
-                //Not in list
-                continue;
+
+        Runnable runnable = new Runnable(){
+
+            @Override
+            public void run() {
+                List<List<WayPoint>> toBeMoved=new ArrayList<List<WayPoint>>();
+                Track sourceTrack = m_tracks.get(point.get_parentName());
+                int i=0;
+                int iPos=-1;
+                List<List<WayPoint>> pointList=sourceTrack.getPoints();
+                for(List<WayPoint> points:pointList){
+                    int pos = points.indexOf(point);
+                    i++;
+                    if(pos==-1){
+                        //Not in list
+                        continue;
+                    }
+                    iPos=i; //+1 -> start with next segment
+                    toBeMoved.add(new ArrayList<>(points.subList(pos,points.size())));
+                }
+                if(pointList.size() >= iPos && iPos!=-1){
+                    for(int j=iPos;j<pointList.size();j++){
+                        toBeMoved.add(new ArrayList<>(pointList.get(j)));
+                    }
+                }
+                for(List<WayPoint> points:toBeMoved) {
+                    sourceTrack.removeWaypoints(points,false);
+                }
+                if(sourceTrack.getSize()==0){
+                    m_tracks.remove(sourceTrack.getName());
+                }
+                for(List<WayPoint> points:toBeMoved){
+                    for(WayPoint p:points) {
+                        p.setParentName(newTrackname);
+                    }
+                }
+                if(!m_tracks.containsKey(newTrackname)){
+                    m_tracks.put(newTrackname,new Track(newTrackname));
+                }
+                if(m_tracks.get(newTrackname).getSize()==0) {
+                    for(List<WayPoint> points:toBeMoved) {
+                        m_tracks.get(newTrackname).addPoints(points);
+                        m_tracks.get(newTrackname).startNewSegment();
+                    }
+                }else{
+                    m_tracks.get(newTrackname).addPointsToSegments(toBeMoved);
+                }
             }
-            iPos=i; //+1 -> start with next segment
-            toBeMoved.add(new ArrayList<>(points.subList(pos,points.size())));
+        };
+        addRunnableToBackgroundThread(GPXThread.ACTION.CHANGE_DATA,runnable);
+        //notifyListener();
+    }
+
+
+    void notifyListener(GPXThread.ACTION action){
+        if(action.equals(GPXThread.ACTION.CHANGE_DATA)) {
+            notifyListener();
         }
-        if(pointList.size() >= iPos && iPos!=-1){
-            for(int j=iPos;j<pointList.size();j++){
-                toBeMoved.add(new ArrayList<>(pointList.get(j)));
-            }
+        if(action.equals(GPXThread.ACTION.SAVE)){
+            notifySaveListener();
         }
-        for(List<WayPoint> points:toBeMoved) {
-            sourceTrack.removeWaypoints(points,false);
-        }
-        if(sourceTrack.getSize()==0){
-            m_tracks.remove(sourceTrack.getName());
-        }
-        for(List<WayPoint> points:toBeMoved){
-            for(WayPoint p:points) {
-                p.setParentName(newTrackname);
-            }
-        }
-        if(!m_tracks.containsKey(newTrackname)){
-            m_tracks.put(newTrackname,new Track(newTrackname));
-        }
-        if(m_tracks.get(newTrackname).getSize()==0) {
-            for(List<WayPoint> points:toBeMoved) {
-                m_tracks.get(newTrackname).addPoints(points);
-                m_tracks.get(newTrackname).startNewSegment();
-            }
-        }else{
-            m_tracks.get(newTrackname).addPointsToSegments(toBeMoved);
-        }
-        notifyListener();
+    }
+
+    private void addRunnableToBackgroundThread(GPXThread.ACTION action, Runnable runnable){
+        Log.d(GPXThread.TAG_THREAD,"Add runnable to background thread");
+        m_thread.m_handler.sendMessage(GPXThread.getPreparedMessage(action,this,runnable));
     }
 
     @Override
@@ -335,8 +381,19 @@ public class SecureGPXParser {
                 return false;
             }
         }
+
         if (!(parser.getLocations().size() == getLocations().size())) {
             return false;
+        }
+        List<Track> otherTracks = parser.getSortedTracks();
+        List<Track> ownTracks = getSortedTracks();
+        if(otherTracks.size() != ownTracks.size()){
+            return false;
+        }
+        for(int i =0; i< ownTracks.size();i++){
+            if(otherTracks.get(i).getSize() != ownTracks.get(i).getSize()){
+                return false;
+            }
         }
         for (int i = 0; i < getLocations().size(); i++) {
             WayPoint p0 = getLocations().get(i);
@@ -414,13 +471,24 @@ public class SecureGPXParser {
     /**
      * Saves the parser. Needs to have filename set.
      *
-     * @throws FileNotFoundException IO exception if filename doesn't exist or is not writeable
      */
-    public void save() throws FileNotFoundException {
+    public void save() {
         if(m_filename==null){
             throw new IllegalArgumentException("No filename set! Call setFilename before!");
         }
-        write(new FileOutputStream(new File(m_filename)));
+        final String fileName = m_filename;
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Log.d(GPXThread.TAG_THREAD,String.format("Write %s to %s",getName(),fileName));
+                    write(new FileOutputStream(new File(fileName)));
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        addRunnableToBackgroundThread(GPXThread.ACTION.SAVE,runnable);
     }
 
     /**
@@ -461,11 +529,26 @@ public class SecureGPXParser {
     }
 
     /**
+     * Starts a reqeust for validation.
+     *
+     * @param validationListener to handle validation result
+     */
+    public void requestValidation(GPXValidationListener validationListener) {
+        Runnable run= new Runnable() {
+            @Override
+            public void run() {
+                validationListener.handleValidation(isValid());
+            }
+        };
+        addRunnableToBackgroundThread(GPXThread.ACTION.CHANGE_VALIDATION,run);
+    }
+
+    /**
      * Checks if data of parser are valid.
      *
      * @return boolean
      */
-    public boolean isValid() {
+    private boolean isValid(){
         if (m_valid == null) {
             m_valid = Boolean.valueOf(validate());
         }
@@ -489,6 +572,14 @@ public class SecureGPXParser {
      */
     public void notifyListener() {
         for (GPXChangeListener listener : m_changeListener) {
+                listener.handleChangedData(this);
+        }
+    }
+    /**
+     * Notifies registered listeners in case of changed values
+     */
+    public void notifySaveListener() {
+        for (GPXChangeListener listener : m_saveListener) {
             listener.handleChangedData(this);
         }
     }
@@ -503,33 +594,45 @@ public class SecureGPXParser {
     }
 
     /**
+     * Unregisters given GPXChangeListener
+     *
+     * @param listener to be removed
+     */
+    public void removeSaveListener(GPXChangeListener listener) {
+        m_saveListener.remove(listener);
+    }
+
+    /**
      * Removes the given WayPoint (either from points or from tracks)
      *
      * @param point to be removed
      */
-    public void removeLocation(WayPoint point) {
-        boolean wasValid = isValid();
-        boolean removed = false;
-        if (point.get_parentName() == null || point.get_parentName().isEmpty()) {
-            //Single waypoint
-            removed = m_points.remove(point);
-        } else {
-            //Track
-            removed = m_tracks.get(point.get_parentName()).removeWaypoint(point);
-            if(m_tracks.get(point.get_parentName()).getSize()==0){
-                m_tracks.remove(point.get_parentName());
+    public void removeLocation(final WayPoint point) {
+        final boolean wasValid = isValid(); //May create own runnable in future (which would be executed before remove
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                boolean removed = false;
+                if (point.get_parentName() == null || point.get_parentName().isEmpty()) {
+                    //Single waypoint
+                    removed = m_points.remove(point);
+                } else {
+                    //Track
+                    removed = m_tracks.get(point.get_parentName()).removeWaypoint(point);
+                    if(m_tracks.get(point.get_parentName()).getSize()==0){
+                        m_tracks.remove(point.get_parentName());
+                    }
+                }
+                if (removed) {
+                    m_sortedPoints.clear();
+                    m_valid = null;
+                    getLocations();
+                    if (wasValid && m_sortedPoints.size() > 0) {
+                        validate(true);
+                    }
             }
-        }
-        if (removed) {
-            m_sortedPoints.clear();
-            m_valid = null;
-            getLocations();
-            if (wasValid && m_sortedPoints.size() > 0) {
-                validate(true);
-            }
-            notifyListener();
-        }
-
+        }};
+        addRunnableToBackgroundThread(GPXThread.ACTION.CHANGE_DATA,runnable);
     }
 
     /**
@@ -550,7 +653,7 @@ public class SecureGPXParser {
      *
      * @param stream to be written to
      */
-    public void write(OutputStream stream) {
+    void write(OutputStream stream) {
         XmlSerializer xmlSerializer = Xml.newSerializer();
         StringWriter writer = new StringWriter();
         try {
@@ -885,6 +988,16 @@ public class SecureGPXParser {
     public interface GPXChangeListener {
         /**Passes changed parser to GPXChangeListener (called from SecureGPXParser) */
         void handleChangedData(SecureGPXParser parser);
+    }
+
+    public interface GPXOnInitListener{
+
+        void onInitReady(SecureGPXParser parser);
+    }
+
+    public interface GPXValidationListener{
+
+        void handleValidation(boolean valid);
     }
 
 }

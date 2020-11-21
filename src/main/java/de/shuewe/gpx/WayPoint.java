@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.Locale;
 
 
 /**
@@ -244,12 +245,19 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
         return res;
     }
 
+    protected Locale getHashLocale(){
+        return Locale.ENGLISH;
+    }
+
     private String parseCoordinate(double doubleVal) {
-        return String.format("%.6f",doubleVal);
+
+        String res=String.format(getHashLocale(),"%.6f",doubleVal);
+        return res;
     }
 
     private String parseAccuracy(double acc){
-        return String.format("%.1f",acc);
+        String res=String.format(getHashLocale(),"%.1f",acc);
+        return res;
     }
 
     /**

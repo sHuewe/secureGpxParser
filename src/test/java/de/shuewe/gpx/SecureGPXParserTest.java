@@ -16,6 +16,19 @@ import static org.junit.Assert.assertTrue;
 @RunWith(RobolectricTestRunner.class)
 public class SecureGPXParserTest {
 
+    SecureGPXParser.GPXValidationListener isValidListener = new SecureGPXParser.GPXValidationListener() {
+        @Override
+        public void handleValidation(boolean valid) {
+            assertTrue(valid);
+        }
+    };
+    SecureGPXParser.GPXValidationListener isInValidListener = new SecureGPXParser.GPXValidationListener() {
+        @Override
+        public void handleValidation(boolean valid) {
+            assertFalse(valid);
+        }
+    };
+
     @Test
     public void checkHashes(){
         SecureGPXParser parser = new SecureGPXParser();
@@ -35,11 +48,12 @@ public class SecureGPXParserTest {
 
     @Test
     public void checkValidation_reload(){
+
         SecureGPXParser parser = new SecureGPXParser();
         parser.addTrackPoint("Test1",10.01,10.05,10);
         parser.addTrackPoint("Test2",12.01,9.05,10);
         parser.addTrackPoint("Test3",14.01,9.05,10);
-        assertTrue(parser.isValid());
+        parser.requestValidation(isValidListener);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         parser.write(out);
         String content=new String(out.toByteArray());
@@ -47,7 +61,7 @@ public class SecureGPXParserTest {
         ByteArrayInputStream in = new ByteArrayInputStream(content.getBytes());
         SecureGPXParser readParser=new SecureGPXParser();
         readParser.init(in);
-        assertTrue(readParser.isValid());
+        readParser.requestValidation(isValidListener);
     }
 
     @Test
@@ -56,7 +70,7 @@ public class SecureGPXParserTest {
         parser.addTrackPoint("Test1",10.01,10.05,10);
         parser.addTrackPoint("Test2",12.01,9.05,10);
         parser.addTrackPoint("Test3",14.01,9.05,10);
-        assertTrue(parser.isValid());
+        parser.requestValidation(isValidListener);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         parser.write(out);
         String content=new String(out.toByteArray());
@@ -68,7 +82,7 @@ public class SecureGPXParserTest {
         ByteArrayInputStream in = new ByteArrayInputStream(content.getBytes());
         SecureGPXParser readParser=new SecureGPXParser();
         readParser.init(in);
-        assertTrue(readParser.isValid());
+        readParser.requestValidation(isValidListener);
         assertEquals(readParser.getLocations().get(0).getName(),newName);
         //Change coordinates, should break validation
         content=content.replace("12.01","09.11");
@@ -76,7 +90,7 @@ public class SecureGPXParserTest {
         in = new ByteArrayInputStream(content.getBytes());
         readParser=new SecureGPXParser();
         readParser.init(in);
-        assertFalse(readParser.isValid());
+        readParser.requestValidation(isInValidListener);
     }
 
 }
