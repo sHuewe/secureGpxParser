@@ -59,6 +59,14 @@ public class Track implements Comparable<Track> {
         m_waypoints.get(m_waypoints.size()-1).get(0).setIsStartPoint(true);
     }
 
+    public List<? extends WayPoint> getAllPoints() {
+        List<WayPoint> res = new ArrayList<>();
+        for(List<WayPoint> segment:getPoints()){
+            res.addAll(segment);
+        }
+        return res;
+    }
+
     /**
      * Finds number of matching segment to given List of points (=segment)
      *

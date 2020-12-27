@@ -1,8 +1,12 @@
 package de.shuewe.gpx;
 
+import android.util.Log;
+
 import java.io.Serializable;
+import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.DecimalFormat;
 import java.util.Date;
 import java.util.Locale;
 
@@ -237,6 +241,7 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
             if (setHash) {
                 setHash(res);
             }
+            Log.d(SecureGPXParser.LOG_TAG,res+" "+getLat()+" "+parseCoordinate(getLat()));
             return res;
 
         } catch (NoSuchAlgorithmException e1) {
@@ -249,15 +254,24 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
         return Locale.ENGLISH;
     }
 
-    private String parseCoordinate(double doubleVal) {
-
-        String res=String.format(getHashLocale(),"%.6f",doubleVal);
+    private String parseDouble(int digits,double val){
+        String res= Double.toString(val);
+        if(!res.contains(".")){
+            return res;
+        }
+        int prePoint = res.split("\\.")[0].length();
+        if(res.length() > prePoint + 1+ digits){
+            return res.substring(0,prePoint+1+digits); //digits + .
+        }
         return res;
     }
 
+    private String parseCoordinate(double doubleVal) {
+        return parseDouble(6,doubleVal);
+    }
+
     private String parseAccuracy(double acc){
-        String res=String.format(getHashLocale(),"%.1f",acc);
-        return res;
+        return parseDouble(1,acc);
     }
 
     /**

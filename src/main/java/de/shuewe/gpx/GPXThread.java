@@ -1,6 +1,7 @@
 package de.shuewe.gpx;
 
 import android.net.wifi.aware.DiscoverySession;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -94,10 +95,12 @@ public class GPXThread extends Thread {
                 Log.d(TAG_THREAD,"startRunnable");
                 runnable.run();
 
-                if(Looper.myLooper().getQueue().isIdle()){
-                    Log.d(TAG_THREAD,"isIdle");
-                }else{
-                    Log.d(TAG_THREAD,"notIdle");
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if(Looper.myLooper().getQueue().isIdle()){
+                        Log.d(TAG_THREAD,"isIdle");
+                    }else{
+                        Log.d(TAG_THREAD,"notIdle");
+                    }
                 }
                 if(parser!=null) {
                     parser.notifyListener(action);

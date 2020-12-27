@@ -50,6 +50,8 @@ public class SecureGPXParser {
     private static final String TAG_TRACK_SEG = "trkseg";
     private static final String TAG_WAYPOINT = "wpt";
 
+    static final String LOG_TAG="SecureGPXParser";
+
     //Set of change listeners.
     private Set<GPXChangeListener> m_changeListener = new HashSet<GPXChangeListener>();
     //File name, can be null
@@ -61,7 +63,7 @@ public class SecureGPXParser {
     //List of single waypoints (without tracks)
     private List<WayPoint> m_points = new ArrayList<>();
     //Set of save listeners.
-    private Set<GPXChangeListener> m_saveListener = new HashSet<GPXChangeListener>();
+    private GPXChangeListener m_saveListener;
     //List of sorted Waypoints (sorted by date, if date == null, points are on end of list).
     private List<WayPoint> m_sortedPoints = null;
     private GPXThread m_thread;
@@ -207,8 +209,8 @@ public class SecureGPXParser {
         m_changeListener.add(listener);
     }
 
-    public void addOnSaveListener(GPXChangeListener listener) {
-        m_saveListener.add(listener);
+    public void setOnSaveListener(GPXChangeListener listener) {
+        m_saveListener=listener;
     }
 
     /**
@@ -505,8 +507,9 @@ public class SecureGPXParser {
      * Notifies registered listeners in case of changed values
      */
     public void notifySaveListener() {
-        for (GPXChangeListener listener : m_saveListener) {
-            listener.handleChangedData(this);
+        if(m_saveListener!=null){
+            m_saveListener.handleChangedData(this);
+            m_saveListener=null;
         }
     }
 
@@ -559,7 +562,9 @@ public class SecureGPXParser {
      * @param listener to be removed
      */
     public void removeSaveListener(GPXChangeListener listener) {
-        m_saveListener.remove(listener);
+        if(m_saveListener.equals(listener)){
+            m_saveListener=null;
+        }
     }
 
     /**
