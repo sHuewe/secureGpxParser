@@ -1,6 +1,11 @@
 package de.shuewe.gpx;
 
+import android.content.Context;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 
 import java.io.Serializable;
 import java.math.RoundingMode;
@@ -14,7 +19,7 @@ import java.util.Locale;
 /**
  * Class representing a single WayPoint. Can be single WayPoint, Track-Point or Route-Point in gpx.
  */
-public class WayPoint implements Comparable<WayPoint>, Serializable {
+public class WayPoint extends GPXElement implements Serializable {
 
     //Radius of earth
     public final static double AVERAGE_RADIUS_OF_EARTH_KM = 6371;
@@ -40,7 +45,7 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
     private String m_name = null;
 
     //Name of parent track
-    private String m_parentName = null;
+    private Track m_parentTrack = null;
 
     /**
      * public constructor
@@ -100,13 +105,7 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
         return AVERAGE_RADIUS_OF_EARTH_KM * c;
     }
 
-    @Override
-    public int compareTo(WayPoint wayPoint) {
-        if (m_date == null) {
-            return 1;
-        }
-        return m_date.compareTo(wayPoint.getDate());
-    }
+
 
     @Override
     public boolean equals(Object o) {
@@ -194,16 +193,16 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
      * @return String
      */
     public String get_parentName() {
-        return m_parentName;
+        return m_parentTrack == null ? null : m_parentTrack.getName();
     }
 
     /**
-     * Sets the parent name
+     * Sets the parent name via track
      *
-     * @param parentName to be set
+     * @param track to be set as parent track
      */
-    public void setParentName(String parentName) {
-        m_parentName = parentName;
+    public void setParentTrack(Track track) {
+        m_parentTrack = track;
     }
 
     /**
@@ -213,6 +212,16 @@ public class WayPoint implements Comparable<WayPoint>, Serializable {
      */
     protected String getHashSecretKey(){
         return HASH_SECRET_KEY;
+    }
+
+    @Override
+    protected Date getSortDate() {
+        return m_date != null ? m_date: new Date(0l);
+    }
+
+    @Override
+    public View getListViewRow(Context context, LayoutInflater inflater, View convertView, ViewGroup viewGroup) {
+        return null;
     }
 
     /**

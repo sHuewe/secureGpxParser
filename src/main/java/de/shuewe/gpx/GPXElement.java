@@ -1,0 +1,23 @@
+package de.shuewe.gpx;
+
+import android.content.Context;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+
+import java.util.Date;
+
+public abstract class GPXElement implements Comparable<GPXElement> {
+
+    protected abstract Date getSortDate();
+    @Override
+    public int compareTo(GPXElement gpxElement){
+        Date date=getSortDate();
+        if (date == null) {
+            return 1;
+        }
+        return date.compareTo(gpxElement.getSortDate());
+    }
+
+    public abstract View getListViewRow(Context context, LayoutInflater inflater, View convertView, ViewGroup viewGroup);
+}

@@ -1,7 +1,6 @@
 package de.shuewe.gpx;
 
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -39,9 +38,9 @@ public class TrackTest {
 
     @Test
     public void testSetup(){
-        assertEquals(10,m_track.getPoints().size());
+        assertEquals(10,m_track.getSegments().size());
         boolean emptyPoints=false;
-        for(List<WayPoint> points:m_track.getPoints()) {
+        for(List<WayPoint> points:m_track.getSegments()) {
             if(!emptyPoints && points.isEmpty()){
                 //This should be the last segment, if not, next iteration will fail
                 emptyPoints=true;
@@ -54,39 +53,39 @@ public class TrackTest {
 
         //Check date order
         //First WayPoint of first segment < First WayPoint of second segment (compareTo considers date only for WayPoint)
-        assertTrue(m_track.getPoints().get(0).get(0).compareTo(m_track.getPoints().get(1).get(0)) <0);
+        assertTrue(m_track.getSegments().get(0).get(0).compareTo(m_track.getSegments().get(1).get(0)) <0);
         //First WayPoint of first segment < Second WayPoint of first segment
-        assertTrue(m_track.getPoints().get(0).get(0).compareTo(m_track.getPoints().get(0).get(1)) <0);
+        assertTrue(m_track.getSegments().get(0).get(0).compareTo(m_track.getSegments().get(0).get(1)) <0);
     }
 
     @Test
     public void testAddSegmentsInBetween(){
-        List<WayPoint> points=m_track.getPoints().get(3);
-        m_track.getPoints().remove(3);
+        List<WayPoint> points=m_track.getSegments().get(3);
+        m_track.getSegments().remove(3);
         points.remove(0);
         points.remove(0);
-        assertEquals(9,m_track.getPoints().size());
+        assertEquals(9,m_track.getSegments().size());
         assertEquals(98,points.size());
 
         //The 3rd segment should be removed. From original 3rd segment two points were removed
         //Add them again to track
-        m_track.addPointsToSegments(Collections.singletonList(points));
-        assertEquals(10,m_track.getPoints().size());
-        assertEquals(98,m_track.getPoints().get(3).size());
+        m_track.addSegments(Collections.singletonList(points));
+        assertEquals(10,m_track.getSegments().size());
+        assertEquals(98,m_track.getSegments().get(3).size());
     }
     @Test
     public void testAddSegmentsInExitingSegment(){
-        List<WayPoint> points=m_track.getPoints().get(3);
+        List<WayPoint> points=m_track.getSegments().get(3);
         points=new ArrayList<>(points.subList(points.size()-5,points.size()-1));
         m_track.removeWaypoints(points);
 
-        assertEquals(10,m_track.getPoints().size());
-        assertEquals(96,m_track.getPoints().get(3).size());
+        assertEquals(10,m_track.getSegments().size());
+        assertEquals(96,m_track.getSegments().get(3).size());
 
         //The 3rd segment should be removed. From original 3rd segment two points were removed
         //Add them again to track
-        m_track.addPointsToSegments(Collections.singletonList(points));
-        assertEquals(10,m_track.getPoints().size());
-        assertEquals(100,m_track.getPoints().get(3).size());
+        m_track.addSegments(Collections.singletonList(points));
+        assertEquals(10,m_track.getSegments().size());
+        assertEquals(100,m_track.getSegments().get(3).size());
     }
 }
