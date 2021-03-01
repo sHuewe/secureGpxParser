@@ -49,6 +49,7 @@ public class SecureGPXParser {
     private static final String TAG_TRACK_POINT = "trkpt";
     private static final String TAG_TRACK_SEG = "trkseg";
     private static final String TAG_WAYPOINT = "wpt";
+    private static final String TAG_ALTITUDE="ele";
 
     static final String LOG_TAG="SecureGPXParser";
 
@@ -108,6 +109,11 @@ public class SecureGPXParser {
             xmlSerializer.startTag("", TAG_TIME);
             xmlSerializer.text(getDateString(point.getDate()));
             xmlSerializer.endTag("", TAG_TIME);
+        }
+        if(point.getAltitude() != null){
+            xmlSerializer.startTag("",TAG_ALTITUDE);
+            xmlSerializer.text(Double.toString(point.getAltitude()));
+            xmlSerializer.endTag("",TAG_ALTITUDE);
         }
         xmlSerializer.startTag("", TAG_PDOP);
         xmlSerializer.text(String.valueOf(point.getAccuracy()));
@@ -251,8 +257,8 @@ public class SecureGPXParser {
      * @param accuracy accuracy
      * @return WayPoint
      */
-    public void addTrackPoint(double lat, double lng, double accuracy) {
-        addTrackPoint(null, lat, lng, accuracy);
+    public void addTrackPoint(double lat, double lng, double accuracy,Double alt) {
+        addTrackPoint(null, lat, lng, accuracy,alt);
     }
 
     /**
@@ -264,8 +270,8 @@ public class SecureGPXParser {
      * @param accuracy accuracy
      * @return WayPoint
      */
-    public void addTrackPoint(String name, double lat, double lng, double accuracy) {
-        addTrackPoint(null, name, lat, lng, accuracy);
+    public void addTrackPoint(String name, double lat, double lng, double accuracy,Double alt) {
+        addTrackPoint(null, name, lat, lng, accuracy,alt);
     }
 
     /**
@@ -278,7 +284,7 @@ public class SecureGPXParser {
      * @param accuracy   accuracy
      * @return WayPoint
      */
-    public void addTrackPoint(String parentName, String name, double lat, double lng, double accuracy) {
+    public void addTrackPoint(String parentName, String name, double lat, double lng, double accuracy,Double alt) {
         final Date date = new Date();
         Runnable runnable = new Runnable() {
 
@@ -290,7 +296,7 @@ public class SecureGPXParser {
                 } else {
                     res = getWayPointInstance(name, lat, lng, date, accuracy);
                 }
-
+                res.setAltitude(alt);
                 String prevHash = null;
                 if (!getLocations().isEmpty()) {
                     prevHash = getLocations().get(getLocations().size() - 1).getHash();
@@ -342,6 +348,9 @@ public class SecureGPXParser {
                     for (int j = iPos; j < pointList.size(); j++) {
                         toBeMoved.add(pointList.get(j).clone());
                     }
+                }
+                if(toBeMoved.isEmpty()){
+                    return;
                 }
                 Log.i(LOG_TAG,"Found "+toBeMoved.size()+" Segments to move");
                 for(TrackSegment segment:toBeMoved){
@@ -1010,6 +1019,7 @@ public class SecureGPXParser {
         Date date = null;
         String accuracy = "20";
         String hashCmt = null;
+        String altitude=null;
         for (int i = 0; i < parser.getAttributeCount(); i++) {
             String attrName = parser.getAttributeName(i);
             if (attrName.equals(ATTRIBUTE_LAT)) {
@@ -1033,12 +1043,17 @@ public class SecureGPXParser {
                 pointName = readText(parser);
             } else if (name.equals(TAG_CMT)) {
                 hashCmt = readText(parser);
+            } else if (name.equals(TAG_ALTITUDE)){
+                altitude=readText(parser);
             } else {
                 skip(parser);
             }
         }
         parser.require(XmlPullParser.END_TAG, null, tag_name);
         WayPoint res = getWayPointInstance(pointName, Double.parseDouble(lat), Double.parseDouble(lng), date, Double.parseDouble(accuracy));
+        if(altitude!=null){
+            res.setAltitude(Double.parseDouble(altitude));
+        }
         if (hashCmt != null) {
             res.setHash(hashCmt);
         }

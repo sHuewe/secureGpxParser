@@ -30,6 +30,9 @@ public class WayPoint extends GPXElement implements Serializable {
     //Coordinates
     protected double m_lat, m_lng;
 
+    //The altitude
+    protected Double m_altitude;
+
     //Accuracy
     private double m_accuracy;
 
@@ -62,6 +65,19 @@ public class WayPoint extends GPXElement implements Serializable {
         m_accuracy = accuracy;
         m_lat = lat;
         m_lng = lng;
+    }
+
+    public WayPoint withAltitude(Double altitude){
+       setAltitude(altitude);
+       return this;
+    }
+
+    public void setAltitude(Double altitude){
+        m_altitude=altitude;
+    }
+
+    public Double getAltitude(){
+        return m_altitude;
     }
 
     public void setIsStartPoint(boolean isStart){
