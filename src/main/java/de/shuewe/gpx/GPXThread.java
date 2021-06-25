@@ -61,7 +61,7 @@ public class GPXThread extends Thread {
 
 
     public static GPXThread getInstance(){
-        if(m_instance == null){
+        if(m_instance == null || !m_instance.isAlive()){
             m_instance = new GPXThread();
             m_instance.start();
             while (m_instance.getHandler() == null){

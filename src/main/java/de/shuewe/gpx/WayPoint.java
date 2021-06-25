@@ -266,7 +266,7 @@ public class WayPoint extends GPXElement implements Serializable {
             if (setHash) {
                 setHash(res);
             }
-            Log.d(SecureGPXParser.LOG_TAG,res+" "+getLat()+" "+parseCoordinate(getLat()));
+            Log.d(GPXHandler.LOG_TAG,res+" "+getLat()+" "+parseCoordinate(getLat()));
             return res;
 
         } catch (NoSuchAlgorithmException e1) {

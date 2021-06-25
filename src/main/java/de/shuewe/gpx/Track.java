@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import static de.shuewe.gpx.SecureGPXParser.LOG_TAG;
+import static de.shuewe.gpx.GPXHandler.LOG_TAG;
 
 /**
  * Class which represents Tracks in GPX.
