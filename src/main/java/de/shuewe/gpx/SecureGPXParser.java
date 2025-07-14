@@ -604,11 +604,18 @@ public class SecureGPXParser {
     }
 
     void notifyListener(GPXThread.ACTION action) {
+        if (action.equals(GPXThread.ACTION.INIT_AND_CHANGE)) {
+            notifyListener();
+            notifySaveListener();
+            return;
+        }
         if (action.equals(GPXThread.ACTION.CHANGE_DATA)) {
             notifyListener();
+            return;
         }
         if (action.equals(GPXThread.ACTION.SAVE)) {
             notifySaveListener();
+            return;
         }
     }
 

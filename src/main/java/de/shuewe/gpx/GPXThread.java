@@ -23,7 +23,7 @@ public class GPXThread extends Thread {
     }
 
     public static enum ACTION{
-        CHANGE_DATA(1), CHANGE_VALIDATION(2), SAVE(3),INIT(4);
+        CHANGE_DATA(1), CHANGE_VALIDATION(2), SAVE(3),INIT(4), INIT_AND_CHANGE(5);
 
         private int m_id;
         ACTION(int id){
